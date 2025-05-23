@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <ProvisioningType>manual</ProvisioningType>
+    <TargetFramework>$(AvsCurrentMacCatalystTargetFramework)</TargetFramework>
+<!--    <TargetFramework>$(AvsCurrentTvOSTargetFramework)</TargetFramework>-->
+    <SupportedOSPlatformVersion>$(AvsMinSupportedMacCatalystVersion)</SupportedOSPlatformVersion>
+    <UseInterpreter>true</UseInterpreter>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\iOS\Avalonia.iOS\Avalonia.iOS.csproj" />
+    <ProjectReference Include="..\ControlCatalog\ControlCatalog.csproj" />
+  </ItemGroup>
+</Project>

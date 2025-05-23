@@ -1,15 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>$(AvsCurrentIOSTargetFramework);$(AvsCurrentTvOSTargetFramework)</TargetFrameworks>
+    <TargetFrameworks>$(AvsCurrentIOSTargetFramework);$(AvsCurrentMacCatalystTargetFramework);$(AvsCurrentTvOSTargetFramework)</TargetFrameworks>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">$(AvsMinSupportedIOSVersion)</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'tvos'">$(AvsMinSupportedTvOSVersion)</SupportedOSPlatformVersion>
-    <!-- Not yet enabled as a target framework -->
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">$(AvsMinSupportedMacCatalystVersion)</SupportedOSPlatformVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 
     <!-- Compatibility attributes are pretty much broken for iOS-like platforms. Verify by hand. -->
     <!-- Workaround: https://github.com/dotnet/roslyn-analyzers/issues/6158 -->
-    <NoWarn>$(NoWarn);CA1416</NoWarn>
+    <NoWarn>$(NoWarn);CA1416;CS8767</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Avalonia.Base\Avalonia.Base.csproj" />
