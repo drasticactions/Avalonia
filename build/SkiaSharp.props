@@ -1,4 +1,13 @@
 ﻿<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+     <AvsIncludeSkiaSharp3>false</AvsIncludeSkiaSharp3>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AvsIncludeSkiaSharp3)' != 'true'">
+     <DefineConstants>$(DefineConstants);SKIASHARP2</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AvsIncludeSkiaSharp3)' == 'true'">
+     <DefineConstants>$(DefineConstants);SKIASHARP3</DefineConstants>
+  </PropertyGroup>
   <ItemGroup Condition="'$(AvsIncludeSkiaSharp3)' != 'true'">
     <PackageReference Include="SkiaSharp" Version="2.88.9" />
     <PackageReference Condition="'$(IncludeLinuxSkia)' == 'true'" Include="SkiaSharp.NativeAssets.Linux" Version="2.88.9" />

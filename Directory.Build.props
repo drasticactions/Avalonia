@@ -9,5 +9,6 @@
       <AddSyntheticProjectReferencesForSolutionDependencies>false</AddSyntheticProjectReferencesForSolutionDependencies>
       <RunApiCompat>False</RunApiCompat>
       <LangVersion>12</LangVersion>
+      <!-- <AvsIncludeSkiaSharp3>True</AvsIncludeSkiaSharp3> -->
   </PropertyGroup>
 </Project>

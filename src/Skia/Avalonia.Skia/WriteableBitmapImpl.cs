@@ -73,7 +73,11 @@ namespace Avalonia.Skia
 
                 if (bmp.Width != desired.Width || bmp.Height != desired.Height)
                 {
+#if SKIASHARP2
                     var scaledBmp = bmp.Resize(desired, interpolationMode.ToSKFilterQuality());
+#elif SKIASHARP3
+                    var scaledBmp = bmp.Resize(desired, interpolationMode.ToSKSamplingOptions());
+#endif
                     bmp.Dispose();
                     bmp = scaledBmp;
                 }
@@ -135,6 +139,27 @@ namespace Avalonia.Skia
                 context.Canvas.DrawImage(_image, sourceRect, destRect, paint);
             }
         }
+
+#if SKIASHARP3
+        /// <inheritdoc />
+        public void Draw(DrawingContextImpl context, SKRect sourceRect, SKRect destRect, SKPaint paint, SKSamplingOptions samplingOptions)
+        {
+            lock (_lock)
+            {
+                if (_image == null || !_imageValid)
+                {
+                    _image?.Dispose();
+                    _image = null;
+                    // NOTE: this does a snapshot of the bitmap. If SKCanvas is not GPU-backed we might want to avoid
+                    // that by force-sharing the pixel data with SKBitmap, but that would require manual pixel
+                    // buffer management
+                    _image = GetSnapshot();
+                    _imageValid = true;
+                }
+                context.Canvas.DrawImage(_image, sourceRect, destRect, samplingOptions, paint);
+            }
+        }
+#endif
 
         /// <inheritdoc />
         public virtual void Dispose()

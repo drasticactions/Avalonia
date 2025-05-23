@@ -16,5 +16,17 @@ namespace Avalonia.Skia
         /// <param name="destRect">Destination rect.</param>
         /// <param name="paint">Paint to use.</param>
         void Draw(DrawingContextImpl context, SKRect sourceRect, SKRect destRect, SKPaint paint);
+
+#if SKIASHARP3
+        /// <summary>
+        /// Draw bitmap to a drawing context.
+        /// </summary>
+        /// <param name="context">Drawing context.</param>
+        /// <param name="sourceRect">Source rect.</param>
+        /// <param name="destRect">Destination rect.</param>
+        /// <param name="paint">Paint to use.</param>
+        /// <param name="samplingOptions">Sampling options.</param>
+        void Draw(DrawingContextImpl context, SKRect sourceRect, SKRect destRect, SKPaint paint, SKSamplingOptions samplingOptions);
+#endif
     }
 }

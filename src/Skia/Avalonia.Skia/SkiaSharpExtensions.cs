@@ -9,6 +9,7 @@ namespace Avalonia.Skia
 {
     public static class SkiaSharpExtensions
     {
+#pragma warning disable CS0618 // Obsolete in SkiaSharp 3+.
         public static SKFilterQuality ToSKFilterQuality(this BitmapInterpolationMode interpolationMode)
         {
             switch (interpolationMode)
@@ -26,6 +27,22 @@ namespace Avalonia.Skia
                     throw new ArgumentOutOfRangeException(nameof(interpolationMode), interpolationMode, null);
             }
         }
+#pragma warning restore CS0618
+
+#if SKIASHARP3
+        public static SKSamplingOptions ToSKSamplingOptions(this BitmapInterpolationMode interpolationMode)
+        {
+            return interpolationMode switch
+            {
+                BitmapInterpolationMode.None => new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None),
+                BitmapInterpolationMode.LowQuality => new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None),
+                BitmapInterpolationMode.Unspecified => new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None),
+                BitmapInterpolationMode.MediumQuality => new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Nearest),
+                BitmapInterpolationMode.HighQuality => new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear),
+                _ => SKSamplingOptions.Default,
+            };
+        }        
+#endif
 
         public static SKBlendMode ToSKBlendMode(this BitmapBlendingMode blendingMode)
         {

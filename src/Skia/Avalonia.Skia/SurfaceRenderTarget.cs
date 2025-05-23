@@ -169,6 +169,15 @@ namespace Avalonia.Skia
             using var image = SnapshotImage();
             context.Canvas.DrawImage(image, sourceRect, destRect, paint);
         }
+
+#if SKIASHARP3
+        /// <inheritdoc />
+        public void Draw(DrawingContextImpl context, SKRect sourceRect, SKRect destRect, SKPaint paint, SKSamplingOptions samplingOptions)
+        {
+            using var image = SnapshotImage();
+            context.Canvas.DrawImage(image, sourceRect, destRect, samplingOptions, paint);
+        }
+#endif
         
         /// <summary>
         /// Create Skia image snapshot from a surface.
