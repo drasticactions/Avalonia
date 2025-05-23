@@ -29,7 +29,7 @@ namespace Avalonia.Skia
         }
 #pragma warning restore CS0618
 
-#if SKIASHARP3
+#if AVALONIA_SKIA3
         public static SKSamplingOptions ToSKSamplingOptions(this BitmapInterpolationMode interpolationMode)
         {
             return interpolationMode switch

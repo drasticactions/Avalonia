@@ -54,9 +54,9 @@ class VulkanSkiaRenderTarget : ISkiaGpuRenderTarget
                     Size = sessionImageInfo.MemorySize
                 }
             };
-#if SKIASHARP2
+#if AVALONIA_SKIA2
             using var renderTarget = new GRBackendRenderTarget(size.Width, size.Height, 1, imageInfo);
-#elif SKIASHARP3
+#elif AVALONIA_SKIA3
             using var renderTarget = new GRBackendRenderTarget(size.Width, size.Height, imageInfo);
 #endif
             var surface = SKSurface.Create(_gpu.GrContext, renderTarget,

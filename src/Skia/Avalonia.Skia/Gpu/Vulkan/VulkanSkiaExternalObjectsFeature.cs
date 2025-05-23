@@ -93,9 +93,9 @@ internal class VulkanSkiaExternalObjectsFeature : IExternalObjectsRenderInterfac
                     Size = info.MemorySize
                 }
             };
-#if SKIASHARP2
+#if AVALONIA_SKIA2
             using var renderTarget = new GRBackendRenderTarget(_properties.Width, _properties.Height, 1, imageInfo);
-#elif SKIASHARP3
+#elif AVALONIA_SKIA3
             using var renderTarget = new GRBackendRenderTarget(_properties.Width, _properties.Height, imageInfo);
 #endif
             using var surface = SKSurface.Create(_gpu.GrContext, renderTarget,

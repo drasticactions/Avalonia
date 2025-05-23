@@ -17,7 +17,7 @@ namespace Avalonia.Skia
         /// <param name="paint">Paint to use.</param>
         void Draw(DrawingContextImpl context, SKRect sourceRect, SKRect destRect, SKPaint paint);
 
-#if SKIASHARP3
+#if AVALONIA_SKIA3
         /// <summary>
         /// Draw bitmap to a drawing context.
         /// </summary>

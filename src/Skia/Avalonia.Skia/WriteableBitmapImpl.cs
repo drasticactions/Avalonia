@@ -73,9 +73,9 @@ namespace Avalonia.Skia
 
                 if (bmp.Width != desired.Width || bmp.Height != desired.Height)
                 {
-#if SKIASHARP2
+#if AVALONIA_SKIA2
                     var scaledBmp = bmp.Resize(desired, interpolationMode.ToSKFilterQuality());
-#elif SKIASHARP3
+#elif AVALONIA_SKIA3
                     var scaledBmp = bmp.Resize(desired, interpolationMode.ToSKSamplingOptions());
 #endif
                     bmp.Dispose();
@@ -140,7 +140,7 @@ namespace Avalonia.Skia
             }
         }
 
-#if SKIASHARP3
+#if AVALONIA_SKIA3
         /// <inheritdoc />
         public void Draw(DrawingContextImpl context, SKRect sourceRect, SKRect destRect, SKPaint paint, SKSamplingOptions samplingOptions)
         {

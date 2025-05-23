@@ -248,14 +248,14 @@ namespace Avalonia.Skia
             var paint = SKPaintCache.Shared.Get();
 
             paint.Color = new SKColor(255, 255, 255, (byte)(255 * opacity * _currentOpacity));
-#if SKIASHARP2
+#if AVALONIA_SKIA2
             paint.FilterQuality = RenderOptions.BitmapInterpolationMode.ToSKFilterQuality();
 #endif
             paint.BlendMode = RenderOptions.BitmapBlendingMode.ToSKBlendMode();
 
-#if SKIASHARP2
+#if AVALONIA_SKIA2
             drawableImage.Draw(this, s, d, paint);
-#elif SKIASHARP3
+#elif AVALONIA_SKIA3
             drawableImage.Draw(this, s, d, paint, SKSamplingOptions.Default);
 #endif
             SKPaintCache.Shared.ReturnReset(paint);
@@ -1259,7 +1259,7 @@ namespace Avalonia.Skia
             using(var shader = tile.ToShader(tileX, tileY, shaderTransform.ToSKMatrix(), 
                       new SKRect(0, 0, tile.CullRect.Width, tile.CullRect.Height)))
             {
-#if SKIASHARP2
+#if AVALONIA_SKIA2
                 paintWrapper.Paint.FilterQuality = SKFilterQuality.None;
 #endif
                 paintWrapper.Paint.Shader = shader;
