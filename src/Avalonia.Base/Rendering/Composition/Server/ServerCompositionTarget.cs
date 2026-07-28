@@ -204,8 +204,15 @@ namespace Avalonia.Rendering.Composition.Server
             RenderTargetDrawingContextProperties properties;
             try
             {
+                // A2: surface the accumulated damage to the platform surface so it can do a
+                // partial output update instead of a full repaint (D9 supersession).
+                PixelRect? damage = _fullRedrawRequested || DirtyRects.IsEmpty
+                    ? null
+                    : LtrbPixelRect.FromRectUnscaled(DirtyRects.CombinedRect).ToPixelRect()
+                        .Intersect(new PixelRect(PixelSize));
                 renderTargetContext =
-                    _renderTarget.CreateDrawingContext(new(PixelSize, Scaling, Size, TransparencyLevel), out properties);
+                    _renderTarget.CreateDrawingContext(
+                        new(PixelSize, Scaling, Size, TransparencyLevel) { Damage = damage }, out properties);
             }
             catch (RenderTargetNotReadyException)
             {

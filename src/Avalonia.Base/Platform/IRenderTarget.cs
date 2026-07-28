@@ -35,6 +35,13 @@ namespace Avalonia.Platform
         
         public record struct RenderTargetSceneInfo(PixelSize Size, double Scaling, Size LogicalSize, CompositionTransparencyLevel TransparencyLevel)
         {
+            /// <summary>
+            /// The pixel region that changed since the last frame this render target
+            /// presented, or null when unknown (full repaint). Platforms use it for partial
+            /// output updates (FB_DAMAGE_CLIPS, partial nested surface commits).
+            /// </summary>
+            public PixelRect? Damage { get; init; }
+
             public RenderTargetSceneInfo(PixelSize size, double scaling, CompositionTransparencyLevel transparencyLevel) : this(size, scaling, size.ToSize(scaling), transparencyLevel)
             {
             }
