@@ -42,6 +42,23 @@ public interface IControlledDispatcherImpl : IDispatcherImplWithPendingInput
     void RunLoop(CancellationToken token);
 }
 
+/// <summary>
+/// A dispatcher implementation that can watch file descriptors on its event loop. Embedders
+/// that bring their own event sources (nested compositors, IPC channels, device fds) use this
+/// to get callbacks on the loop thread when a descriptor becomes readable, without owning the
+/// loop themselves.
+/// </summary>
+[PrivateApi]
+public interface IDispatcherImplWithFdSources : IDispatcherImpl
+{
+    /// <summary>
+    /// Watches a file descriptor for readability; <paramref name="onReadable"/> runs on the
+    /// loop thread every time it becomes readable, until the returned registration is
+    /// disposed. Must be called on the loop thread.
+    /// </summary>
+    IDisposable WatchReadable(int fd, Action onReadable);
+}
+
 internal class LegacyDispatcherImpl : IDispatcherImpl
 {
     private readonly IPlatformThreadingInterface _platformThreading;

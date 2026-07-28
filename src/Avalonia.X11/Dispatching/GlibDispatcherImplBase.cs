@@ -16,7 +16,8 @@ namespace Avalonia.X11.Dispatching;
 /// </summary>
 internal abstract class GlibDispatcherImplBase :
     IDispatcherImplWithExplicitBackgroundProcessing,
-    IControlledDispatcherImpl
+    IControlledDispatcherImpl,
+    IDispatcherImplWithFdSources
 {
     /*
         GLib priorities and Avalonia priorities are a bit different. Avalonia follows the WPF model when there
@@ -181,6 +182,41 @@ internal abstract class GlibDispatcherImplBase :
     /// </summary>
     protected virtual void Flush()
     {
+    }
+
+    public IDisposable WatchReadable(int fd, Action onReadable)
+    {
+        if (!CurrentThreadIsLoopThread)
+            throw new InvalidOperationException("WatchReadable must be called on the loop thread.");
+
+        var id = g_unix_fd_add_full(G_PRIORITY_DEFAULT, fd, GIOCondition.G_IO_IN, (_, _) =>
+        {
+            try
+            {
+                onReadable();
+            }
+            catch (Exception e)
+            {
+                HandleException(e);
+            }
+
+            return true;
+        });
+        return new FdWatchRegistration(id);
+    }
+
+    private sealed class FdWatchRegistration(uint id) : IDisposable
+    {
+        private uint _id = id;
+
+        public void Dispose()
+        {
+            if (_id != 0)
+            {
+                g_source_remove(_id);
+                _id = 0;
+            }
+        }
     }
 
     /// <summary>The cancellation token of the innermost Avalonia-controlled run loop frame, or None when no frame
