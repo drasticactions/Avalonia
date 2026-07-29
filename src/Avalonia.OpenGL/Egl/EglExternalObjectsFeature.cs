@@ -139,9 +139,7 @@ internal class EglExternalObjectsFeature : IGlContextExternalObjectsFeature
 
                 for (var m = 0; m < modifierCount; m++)
                 {
-                    // External-only modifiers can only be sampled via GL_TEXTURE_EXTERNAL_OES;
-                    // the import path binds GL_TEXTURE_2D, so they are not usable here.
-                    if (externalOnly[m] == 0)
+                    if (externalOnly[m] == 0 || IsYuvDrmFormat(format))
                         result.Add(new PlatformGraphicsDrmFormat((uint)format, modifiers[m]));
                 }
             }
@@ -158,6 +156,17 @@ internal class EglExternalObjectsFeature : IGlContextExternalObjectsFeature
 
     public IGlExportableExternalImageTexture CreateImage(string type, PixelSize size,
         PlatformGraphicsExternalImageFormat format) => throw new NotSupportedException();
+
+    private static bool IsYuvDrmFormat(int drmFormat)
+    {
+        // NV12/NV21/NV16/NV24, YUV420 (YU12/YV12), P010/P016, and other planar YUV fourccs
+        // have the second byte in {'V'} or start with 'N'/'Y'/'P' planar families.
+        var b0 = (byte)drmFormat;
+        var b1 = (byte)(drmFormat >> 8);
+        return (b0 == (byte)'N' && b1 == (byte)'V')   // NVxx
+            || (b0 == (byte)'Y' && (b1 == (byte)'U' || b1 == (byte)'V')) // YUxx/YVxx
+            || (b0 == (byte)'P' && (b1 == (byte)'0' || b1 == (byte)'2')); // P010/P016/P210...
+    }
 
     public IGlExportableExternalSemaphore CreateSemaphore(string type)
     {
@@ -215,31 +224,37 @@ internal class EglExternalObjectsFeature : IGlContextExternalObjectsFeature
 
         var eglImage = new EglImage(_context.Display, imageHandle);
 
+        // YUV / multi-planar images must be bound to the external OES target; the driver's
+        // samplerExternalOES does the colour conversion. RGB stays on GL_TEXTURE_2D.
+        var textureTarget = properties.Format == PlatformGraphicsExternalImageFormat.Yuv
+            ? GL_TEXTURE_EXTERNAL_OES
+            : GL_TEXTURE_2D;
+
         var gl = _context.GlInterface;
         gl.GetIntegerv(GL_TEXTURE_BINDING_2D, out var oldTexture);
         var texture = gl.GenTexture();
         try
         {
-            gl.BindTexture(GL_TEXTURE_2D, texture);
-            gl.EGLImageTargetTexture2DOES(GL_TEXTURE_2D, eglImage.Handle);
+            gl.BindTexture(textureTarget, texture);
+            gl.EGLImageTargetTexture2DOES(textureTarget, eglImage.Handle);
             var err = gl.GetError();
             if (err != 0)
                 throw OpenGlException.GetFormattedException("glEGLImageTargetTexture2DOES", err);
 
             // The imported texture has no mip levels; ensure it is sampling-complete.
-            gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            gl.TexParameteri(textureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            gl.TexParameteri(textureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         }
         catch
         {
-            gl.BindTexture(GL_TEXTURE_2D, oldTexture);
+            gl.BindTexture(textureTarget, oldTexture);
             gl.DeleteTexture(texture);
             eglImage.Dispose();
             throw;
         }
 
-        gl.BindTexture(GL_TEXTURE_2D, oldTexture);
-        return new DmaBufImageTexture(_context, eglImage, texture, properties);
+        gl.BindTexture(textureTarget, oldTexture);
+        return new DmaBufImageTexture(_context, eglImage, texture, properties, textureTarget);
     }
 
     public IGlExternalSemaphore ImportSemaphore(IPlatformHandle handle)
@@ -400,15 +415,17 @@ internal class EglExternalObjectsFeature : IGlContextExternalObjectsFeature
     private sealed class DmaBufImageTexture : IGlExternalImageTexture
     {
         private readonly EglContext _context;
+        private readonly int _textureType;
         private EglImage? _image;
         private int _texture;
 
         public DmaBufImageTexture(EglContext context, EglImage image, int texture,
-            PlatformGraphicsExternalImageProperties properties)
+            PlatformGraphicsExternalImageProperties properties, int textureType = GL_TEXTURE_2D)
         {
             _context = context;
             _image = image;
             _texture = texture;
+            _textureType = textureType;
             Properties = properties;
         }
 
@@ -433,7 +450,7 @@ internal class EglExternalObjectsFeature : IGlContextExternalObjectsFeature
 
         public int TextureId => _texture;
         public int InternalFormat => GL_RGBA8;
-        public int TextureType => GL_TEXTURE_2D;
+        public int TextureType => _textureType;
         public PlatformGraphicsExternalImageProperties Properties { get; }
     }
 }

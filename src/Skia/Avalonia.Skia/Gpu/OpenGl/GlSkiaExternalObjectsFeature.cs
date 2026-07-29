@@ -10,9 +10,16 @@ namespace Avalonia.Skia;
 
 internal class GlSkiaExternalObjectsFeature : IExternalObjectsRenderInterfaceContextFeature, IGlSkiaFboProvider
 {
+    private const int GL_TEXTURE_EXTERNAL_OES = 0x8D65;
+    private const int GL_TRIANGLE_STRIP_ = 0x0005;
+    private const int GL_CURRENT_PROGRAM_ = 0x8B8D;
+
     private readonly GlSkiaGpu _gpu;
     private readonly IGlContextExternalObjectsFeature? _feature;
     private int _fbo;
+    private int _oesProgram;
+    private int _oesVbo;
+    private int _oesSamplerLocation;
 
     public GlSkiaExternalObjectsFeature(GlSkiaGpu gpu, IGlContextExternalObjectsFeature? feature)
     {
@@ -74,11 +81,111 @@ internal class GlSkiaExternalObjectsFeature : IExternalObjectsRenderInterfaceCon
 
     public byte[]? DeviceUuid => _feature?.DeviceUuid;
     public byte[]? DeviceLuid => _feature?.DeviceLuid;
+
+    public int BlitExternalToRgba(int sourceTextureId, int width, int height)
+    {
+        var gl = _gpu.GlContext.GlInterface;
+        using var _ = _gpu.EnsureCurrent();
+        EnsureOesProgram(gl);
+
+        gl.GetIntegerv(GL_FRAMEBUFFER_BINDING, out var oldFbo);
+        gl.GetIntegerv(GL_CURRENT_PROGRAM_, out var oldProgram);
+
+        var dest = gl.GenTexture();
+        gl.BindTexture(GL_TEXTURE_2D, dest);
+        gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, IntPtr.Zero);
+        gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        gl.BindFramebuffer(GL_FRAMEBUFFER, Fbo);
+        gl.FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, dest, 0);
+        gl.Viewport(0, 0, width, height);
+
+        gl.UseProgram(_oesProgram);
+        gl.ActiveTexture(GL_TEXTURE0);
+        gl.BindTexture(GL_TEXTURE_EXTERNAL_OES, sourceTextureId);
+        gl.Uniform1i(_oesSamplerLocation, 0);
+
+        gl.BindBuffer(GL_ARRAY_BUFFER, _oesVbo);
+        gl.EnableVertexAttribArray(0);
+        gl.VertexAttribPointer(0, 4, GL_FLOAT, 0, 4 * sizeof(float), IntPtr.Zero);
+        gl.DrawArrays(GL_TRIANGLE_STRIP_, 0, 4);
+
+        gl.BindTexture(GL_TEXTURE_EXTERNAL_OES, 0);
+        gl.FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+        gl.BindFramebuffer(GL_FRAMEBUFFER, oldFbo);
+        gl.UseProgram(oldProgram);
+        gl.Flush();
+        return dest;
+    }
+
+    private void EnsureOesProgram(GlInterface gl)
+    {
+        if (_oesProgram != 0)
+            return;
+
+        const string vertex =
+            "attribute vec4 aPos;\n" +
+            "varying vec2 vTex;\n" +
+            "void main() {\n" +
+            "  vTex = aPos.zw;\n" +
+            "  gl_Position = vec4(aPos.xy, 0.0, 1.0);\n" +
+            "}\n";
+        const string fragment =
+            "#extension GL_OES_EGL_image_external : require\n" +
+            "precision mediump float;\n" +
+            "varying vec2 vTex;\n" +
+            "uniform samplerExternalOES uTex;\n" +
+            "void main() { gl_FragColor = texture2D(uTex, vTex); }\n";
+
+        var vs = gl.CreateShader(GL_VERTEX_SHADER);
+        var vsErr = gl.CompileShaderAndGetError(vs, vertex);
+        if (vsErr is not null)
+            throw new OpenGlException("External-image blit vertex shader: " + vsErr);
+        var fs = gl.CreateShader(GL_FRAGMENT_SHADER);
+        var fsErr = gl.CompileShaderAndGetError(fs, fragment);
+        if (fsErr is not null)
+            throw new OpenGlException("External-image blit fragment shader: " + fsErr);
+
+        _oesProgram = gl.CreateProgram();
+        gl.AttachShader(_oesProgram, vs);
+        gl.AttachShader(_oesProgram, fs);
+        gl.BindAttribLocationString(_oesProgram, 0, "aPos");
+        var linkErr = gl.LinkProgramAndGetError(_oesProgram);
+        if (linkErr is not null)
+            throw new OpenGlException("External-image blit program: " + linkErr);
+        gl.DeleteShader(vs);
+        gl.DeleteShader(fs);
+        _oesSamplerLocation = gl.GetUniformLocationString(_oesProgram, "uTex");
+
+        float[] quad =
+        {
+            -1f, -1f, 0f, 1f,
+             1f, -1f, 1f, 1f,
+            -1f,  1f, 0f, 0f,
+             1f,  1f, 1f, 0f,
+        };
+        _oesVbo = gl.GenBuffer();
+        gl.BindBuffer(GL_ARRAY_BUFFER, _oesVbo);
+        unsafe
+        {
+            fixed (float* p = quad)
+                gl.BufferData(GL_ARRAY_BUFFER, new IntPtr(quad.Length * sizeof(float)), new IntPtr(p), GL_STATIC_DRAW);
+        }
+    }
 }
 
 internal interface IGlSkiaFboProvider
 {
     int Fbo { get; }
+
+    /// <summary>
+    /// Samples an external OES texture (YUV / NV12) into a fresh RGBA GL_TEXTURE_2D that Skia
+    /// can consume, doing the colour conversion via samplerExternalOES. Returns the new id.
+    /// </summary>
+    int BlitExternalToRgba(int sourceTextureId, int width, int height);
 }
 
 internal class GlSkiaImportedSemaphore : IPlatformRenderInterfaceImportedSemaphore
@@ -269,6 +376,11 @@ internal class GlSkiaImportedImage : IPlatformRenderInterfaceImportedImage
         var gl = _gpu.GlContext.GlInterface;
 
         using var _ = _gpu.EnsureCurrent();
+
+        // External OES textures (YUV / NV12) can't be a framebuffer read source; sample them
+        // through samplerExternalOES into a normal RGBA GL_TEXTURE_2D that Skia can consume.
+        if (textureType == GL_TEXTURE_EXTERNAL_OES)
+            return _fboProvider.BlitExternalToRgba(sourceTextureId, width, height);
 
         // Snapshot current values
         gl.GetIntegerv(GL_FRAMEBUFFER_BINDING, out var oldFbo);

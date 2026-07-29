@@ -20,7 +20,12 @@ public record struct PlatformGraphicsExternalImageProperties
 public enum PlatformGraphicsExternalImageFormat
 {
     R8G8B8A8UNorm,
-    B8G8R8A8UNorm
+    B8G8R8A8UNorm,
+    /// <summary>
+    /// A YUV / multi-planar image (e.g. NV12) that must be sampled through an external
+    /// sampler; the platform converts it to RGB on import.
+    /// </summary>
+    Yuv
 }
 
 /// <summary>

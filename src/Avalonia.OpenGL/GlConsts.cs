@@ -412,6 +412,8 @@ namespace Avalonia.OpenGL
 //        public const int GL_TEXTURE_ENV_MODE = 0x2200;
 //        public const int GL_TEXTURE_1D = 0x0DE0;
         public const int GL_TEXTURE_2D = 0x0DE1;
+        public const int GL_TEXTURE_EXTERNAL_OES = 0x8D65;
+        public const int GL_TEXTURE_BINDING_EXTERNAL_OES = 0x8D67;
         public const int GL_TEXTURE_WRAP_S = 0x2802;
         public const int GL_TEXTURE_WRAP_T = 0x2803;
         public const int GL_TEXTURE_MAG_FILTER = 0x2800;
