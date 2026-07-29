@@ -38,6 +38,12 @@ namespace Avalonia.OpenGL.Egl
         public const int  EGL_NATIVE_VISUAL_ID = 0x302E;
 //        public const int  EGL_NATIVE_VISUAL_TYPE = 0x302F;
         public const int  EGL_NONE = 0x3038;
+
+        // EGL_KHR_fence_sync / EGL_ANDROID_native_fence_sync
+        public const uint EGL_SYNC_NATIVE_FENCE_ANDROID = 0x3144;
+        public const int EGL_SYNC_NATIVE_FENCE_FD_ANDROID = 0x3145;
+        public const int EGL_NO_NATIVE_FENCE_FD_ANDROID = -1;
+        public const int EGL_SYNC_FLUSH_COMMANDS_BIT_KHR = 0x0001;
 //        public const int  EGL_NON_CONFORMANT_CONFIG = 0x3051;
         public const int  EGL_NOT_INITIALIZED = 0x3001;
         public const int  EGL_NO_CONTEXT = 0;

@@ -40,17 +40,29 @@ internal class EglExternalObjectsFeature : IGlContextExternalObjectsFeature
         }
     }
 
+    private readonly bool _hasNativeFenceSync;
+    private readonly List<string> _semaphoreTypes = new();
+
     private EglExternalObjectsFeature(EglContext context, bool hasModifiers)
     {
         _context = context;
         _hasModifiers = hasModifiers;
         _imageTypes.Add(KnownPlatformGraphicsExternalImageHandleTypes.DmaBufFileDescriptor);
+
+        var egl = context.Display.EglInterface;
+        var extensions = egl.QueryString(context.Display.Handle, EGL_EXTENSIONS) ?? "";
+        _hasNativeFenceSync = extensions.Contains("EGL_KHR_fence_sync")
+            && extensions.Contains("EGL_ANDROID_native_fence_sync")
+            && egl.IsCreateSyncKHRAvailable && egl.IsDupNativeFenceFDANDROIDAvailable
+            && egl.IsWaitSyncKHRAvailable && egl.IsDestroySyncKHRAvailable;
+        if (_hasNativeFenceSync)
+            _semaphoreTypes.Add(KnownPlatformGraphicsExternalSemaphoreHandleTypes.SyncFileDescriptor);
     }
 
     public IReadOnlyList<string> SupportedImportableExternalImageTypes => _imageTypes;
     public IReadOnlyList<string> SupportedExportableExternalImageTypes { get; } = Array.Empty<string>();
-    public IReadOnlyList<string> SupportedImportableExternalSemaphoreTypes { get; } = Array.Empty<string>();
-    public IReadOnlyList<string> SupportedExportableExternalSemaphoreTypes { get; } = Array.Empty<string>();
+    public IReadOnlyList<string> SupportedImportableExternalSemaphoreTypes => _semaphoreTypes;
+    public IReadOnlyList<string> SupportedExportableExternalSemaphoreTypes => _semaphoreTypes;
 
     public IReadOnlyList<PlatformGraphicsExternalImageFormat> GetSupportedFormatsForExternalMemoryType(string type) =>
         new[]
@@ -147,7 +159,12 @@ internal class EglExternalObjectsFeature : IGlContextExternalObjectsFeature
     public IGlExportableExternalImageTexture CreateImage(string type, PixelSize size,
         PlatformGraphicsExternalImageFormat format) => throw new NotSupportedException();
 
-    public IGlExportableExternalImageTexture CreateSemaphore(string type) => throw new NotSupportedException();
+    public IGlExportableExternalSemaphore CreateSemaphore(string type)
+    {
+        if (type != KnownPlatformGraphicsExternalSemaphoreHandleTypes.SyncFileDescriptor || !_hasNativeFenceSync)
+            throw new NotSupportedException(type + " semaphores are not supported");
+        return new EglNativeFenceSemaphore(_context, importedFd: -1);
+    }
 
     public IGlExternalImageTexture ImportImage(IPlatformHandle handle,
         PlatformGraphicsExternalImageProperties properties)
@@ -225,7 +242,13 @@ internal class EglExternalObjectsFeature : IGlContextExternalObjectsFeature
         return new DmaBufImageTexture(_context, eglImage, texture, properties);
     }
 
-    public IGlExternalSemaphore ImportSemaphore(IPlatformHandle handle) => throw new NotSupportedException();
+    public IGlExternalSemaphore ImportSemaphore(IPlatformHandle handle)
+    {
+        if (handle.HandleDescriptor != KnownPlatformGraphicsExternalSemaphoreHandleTypes.SyncFileDescriptor
+            || !_hasNativeFenceSync)
+            throw new NotSupportedException(handle.HandleDescriptor + " semaphores are not supported");
+        return new EglNativeFenceSemaphore(_context, importedFd: handle.Handle.ToInt32());
+    }
 
     public CompositionGpuImportedImageSynchronizationCapabilities GetSynchronizationCapabilities(string imageHandleType)
     {
@@ -281,6 +304,98 @@ internal class EglExternalObjectsFeature : IGlContextExternalObjectsFeature
         3 => EGL_DMA_BUF_PLANE3_MODIFIER_HI_EXT,
         _ => throw new ArgumentOutOfRangeException(nameof(plane))
     };
+
+    /// <summary>
+    /// A semaphore backed by an EGL native fence (EGL_ANDROID_native_fence_sync). Signalling
+    /// inserts a fence into the GL command stream and exports it as a sync-file fd; waiting
+    /// imports an fd as a fence and issues a GPU-side wait so subsequent sampling of the
+    /// associated texture happens only after the producer's work completes.
+    /// </summary>
+    private sealed class EglNativeFenceSemaphore : IGlExportableExternalSemaphore
+    {
+        private readonly EglContext _context;
+        private int _importedFd;
+
+        public EglNativeFenceSemaphore(EglContext context, int importedFd)
+        {
+            _context = context;
+            _importedFd = importedFd;
+        }
+
+        public void SignalSemaphore(IGlExternalImageTexture texture)
+        {
+            // Create a fence after the producer's GL commands; flush so it enters the stream.
+            using var _ = _context.EnsureCurrent();
+            var egl = _context.Display.EglInterface;
+            var sync = egl.CreateSyncKHR(_context.Display.Handle, EGL_SYNC_NATIVE_FENCE_ANDROID, null);
+            if (sync == IntPtr.Zero)
+                throw new OpenGlException("eglCreateSyncKHR (native fence) failed");
+            try
+            {
+                _context.GlInterface.Flush();
+                var fd = egl.DupNativeFenceFDANDROID(_context.Display.Handle, sync);
+                if (fd == EGL_NO_NATIVE_FENCE_FD_ANDROID)
+                    throw new OpenGlException("eglDupNativeFenceFDANDROID failed");
+                if (_importedFd >= 0)
+                    NativeUnixMethods.close(_importedFd);
+                _importedFd = fd;
+            }
+            finally
+            {
+                egl.DestroySyncKHR(_context.Display.Handle, sync);
+            }
+        }
+
+        public void WaitSemaphore(IGlExternalImageTexture texture)
+        {
+            if (_importedFd < 0)
+                return;
+            using var _ = _context.EnsureCurrent();
+            var egl = _context.Display.EglInterface;
+            // Creating the sync from the fd transfers ownership of the fd to EGL.
+            var attribs = new[] { EGL_SYNC_NATIVE_FENCE_FD_ANDROID, _importedFd, EGL_NONE };
+            var sync = egl.CreateSyncKHR(_context.Display.Handle, EGL_SYNC_NATIVE_FENCE_ANDROID, attribs);
+            _importedFd = -1;
+            if (sync == IntPtr.Zero)
+                throw new OpenGlException("eglCreateSyncKHR from imported fence fd failed");
+            try
+            {
+                egl.WaitSyncKHR(_context.Display.Handle, sync, 0);
+            }
+            finally
+            {
+                egl.DestroySyncKHR(_context.Display.Handle, sync);
+            }
+        }
+
+        public void WaitTimelineSemaphore(IGlExternalImageTexture texture, ulong value) => WaitSemaphore(texture);
+
+        public void SignalTimelineSemaphore(IGlExternalImageTexture texture, ulong value) => SignalSemaphore(texture);
+
+        public IPlatformHandle GetHandle()
+        {
+            if (_importedFd < 0)
+                throw new InvalidOperationException("The semaphore has not been signalled.");
+            var fd = _importedFd;
+            _importedFd = -1;
+            return new PlatformHandle(new IntPtr(fd), KnownPlatformGraphicsExternalSemaphoreHandleTypes.SyncFileDescriptor);
+        }
+
+        public void Dispose()
+        {
+            if (_importedFd >= 0)
+            {
+                NativeUnixMethods.close(_importedFd);
+                _importedFd = -1;
+            }
+        }
+    }
+
+    private static class NativeUnixMethods
+    {
+        [System.Runtime.InteropServices.DllImport("libc", SetLastError = true)]
+        public static extern int close(int fd);
+    }
 
     private sealed class DmaBufImageTexture : IGlExternalImageTexture
     {

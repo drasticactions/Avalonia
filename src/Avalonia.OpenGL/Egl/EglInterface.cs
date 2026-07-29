@@ -169,5 +169,21 @@ namespace Avalonia.OpenGL.Egl
 
         [GetProcAddress("eglQueryDmaBufModifiersEXT", true)]
         public partial bool QueryDmaBufModifiersEXT(IntPtr display, int format, int maxModifiers, ulong* modifiers, bool* externalOnly, out int numModifiers);
+
+        // EGL_KHR_fence_sync / EGL_ANDROID_native_fence_sync
+        [GetProcAddress("eglCreateSyncKHR", true)]
+        public partial IntPtr CreateSyncKHR(IntPtr display, uint type, int[]? attribs);
+
+        [GetProcAddress("eglDestroySyncKHR", true)]
+        public partial bool DestroySyncKHR(IntPtr display, IntPtr sync);
+
+        [GetProcAddress("eglWaitSyncKHR", true)]
+        public partial int WaitSyncKHR(IntPtr display, IntPtr sync, int flags);
+
+        [GetProcAddress("eglClientWaitSyncKHR", true)]
+        public partial int ClientWaitSyncKHR(IntPtr display, IntPtr sync, int flags, long timeout);
+
+        [GetProcAddress("eglDupNativeFenceFDANDROID", true)]
+        public partial int DupNativeFenceFDANDROID(IntPtr display, IntPtr sync);
     }
 }

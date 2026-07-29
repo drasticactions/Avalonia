@@ -138,7 +138,7 @@ public class ExternalObjectsOpenGlExtensionFeature : IGlContextExternalObjectsFe
         PlatformGraphicsExternalImageFormat format) =>
         throw new NotSupportedException();
 
-    public IGlExportableExternalImageTexture CreateSemaphore(string type) => throw new NotSupportedException();
+    public IGlExportableExternalSemaphore CreateSemaphore(string type) => throw new NotSupportedException();
 
     public IGlExternalImageTexture ImportImage(IPlatformHandle handle, PlatformGraphicsExternalImageProperties properties)
     {

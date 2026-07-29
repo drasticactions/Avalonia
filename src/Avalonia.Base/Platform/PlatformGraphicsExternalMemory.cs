@@ -77,6 +77,12 @@ public static class KnownPlatformGraphicsExternalImageHandleTypes
 public static class KnownPlatformGraphicsExternalSemaphoreHandleTypes
 {
     /// <summary>
+    /// A Linux sync_file / EGL native fence file descriptor, exported via
+    /// EGL_ANDROID_native_fence_sync. Waitable and importable as a drm_syncobj timeline point.
+    /// </summary>
+    public const string SyncFileDescriptor = nameof(SyncFileDescriptor);
+
+    /// <summary>
     /// A POSIX file descriptor that's been exported by Vulkan using VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT or in a compatible way
     /// </summary>
     public const string VulkanOpaquePosixFileDescriptor = nameof(VulkanOpaquePosixFileDescriptor);

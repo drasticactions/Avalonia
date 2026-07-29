@@ -18,7 +18,7 @@ public interface IGlContextExternalObjectsFeature
 
     IGlExportableExternalImageTexture CreateImage(string type,PixelSize size, PlatformGraphicsExternalImageFormat format);
 
-    IGlExportableExternalImageTexture CreateSemaphore(string type);
+    IGlExportableExternalSemaphore CreateSemaphore(string type);
     IGlExternalImageTexture ImportImage(IPlatformHandle handle, PlatformGraphicsExternalImageProperties properties);
     IGlExternalSemaphore ImportSemaphore(IPlatformHandle handle);
     CompositionGpuImportedImageSynchronizationCapabilities GetSynchronizationCapabilities(string imageHandleType);
