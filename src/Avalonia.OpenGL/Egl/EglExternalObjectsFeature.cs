@@ -220,7 +220,10 @@ internal class EglExternalObjectsFeature : IGlContextExternalObjectsFeature
                 EGL_LINUX_DMA_BUF_EXT, IntPtr.Zero, attribs.ToArray());
 
         if (imageHandle == IntPtr.Zero)
-            throw new OpenGlException("eglCreateImageKHR failed to import the dma-buf");
+            throw new OpenGlException(
+                $"eglCreateImageKHR failed to import the dma-buf (egl error 0x{_context.Display.EglInterface.GetError():X}, " +
+                $"{properties.Width}x{properties.Height} fourcc=0x{properties.DrmFormat:X8} " +
+                $"modifier=0x{properties.DrmModifier:X16} planes={planeCount})");
 
         var eglImage = new EglImage(_context.Display, imageHandle);
 

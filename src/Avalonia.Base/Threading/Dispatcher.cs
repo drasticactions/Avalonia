@@ -144,6 +144,12 @@ public partial class Dispatcher : IDispatcher
             _backgroundProcessingImpl = null;
         }
 
+        // Timer due-times are compared against Now on our side and against
+        // impl.Now inside the implementation's UpdateTimer; both must read
+        // the same clock or timers misfire (see _timeProvider declaration).
+        if (impl != null)
+            _timeProvider = () => impl.Now;
+
         if (impl != null)
             _initialized = true;
         else

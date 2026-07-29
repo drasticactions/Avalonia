@@ -16,7 +16,12 @@ public partial class Dispatcher
     private long? _dueTimeForBackgroundProcessing;
     private long? _osTimerSetTo;
 
-    private readonly Func<long> _timeProvider;
+    // Not readonly: ReplaceImplementation must switch to the new impl's clock,
+    // otherwise timer due-times computed against the old clock are skewed
+    // against IDispatcherImpl.UpdateTimer's interval math, which can turn
+    // every timer into an immediately-firing one that is never considered due
+    // (an infinite zero-interval timer storm).
+    private Func<long> _timeProvider;
     internal long Now => _timeProvider();
 
     private void UpdateOSTimer()
